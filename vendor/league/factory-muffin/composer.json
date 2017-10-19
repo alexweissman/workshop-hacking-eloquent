@@ -1,0 +1,55 @@
+{
+    "name": "league/factory-muffin",
+    "description": "The goal of this package is to enable the rapid creation of objects for the purpose of testing.",
+    "keywords": ["testing", "factory"],
+    "homepage": "http://factory-muffin.thephpleague.com/",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Graham Campbell",
+            "email": "graham@alt-three.com"
+        },
+        {
+            "name": "Scott Robertson",
+            "email": "scottymeuk@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0"
+    },
+    "require-dev": {
+        "doctrine/orm": "2.5.*",
+        "illuminate/database": "5.0.*|5.1.*",
+        "league/factory-muffin-faker": "^2.0",
+        "phpunit/phpunit": "^4.8|^5.0"
+    },
+    "replace": {
+        "zizaco/factory-muff": "self.version"
+    },
+    "suggest": {
+        "doctrine/orm": "Factory Muffin supports doctrine through the repository store.",
+        "illuminate/database": "Factory Muffin supports eloquent through the model store.",
+        "league/factory-muffin-faker": "Factory Muffin is very powerful together with faker."
+    },
+    "autoload": {
+        "psr-4": {
+            "League\\FactoryMuffin\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "classmap": [
+            "tests/AbstractTestCase.php"
+        ],
+        "psr-4": {
+            "League\\FactoryMuffin\\Test\\": "tests/entities/"
+        }
+    },
+    "config": {
+        "preferred-install": "dist"
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "3.0-dev"
+        }
+    }
+}
