@@ -1,9 +1,10 @@
 <?php
 /**
- * UserFrosting (http://www.userfrosting.com)
+ * Hacking Laravel: Custom Relationships in Eloquent
  *
- * @link      https://github.com/userfrosting/UserFrosting
- * @license   https://github.com/userfrosting/UserFrosting/blob/master/licenses/UserFrosting.md (MIT License)
+ * @link      https://github.com/alexweissman/phpworld2017
+ * @see       https://world.phparch.com/sessions/hacking-laravel-custom-relationships-in-eloquent/
+ * @license   MIT
  */
 namespace App\Database\Relations;
 

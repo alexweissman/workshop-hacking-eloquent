@@ -1,9 +1,10 @@
 <?php
 /**
- * UserFrosting (http://www.userfrosting.com)
+ * Hacking Laravel: Custom Relationships in Eloquent
  *
- * @link      https://github.com/userfrosting/UserFrosting
- * @license   https://github.com/userfrosting/UserFrosting/blob/master/licenses/UserFrosting.md (MIT License)
+ * @link      https://github.com/alexweissman/phpworld2017
+ * @see       https://world.phparch.com/sessions/hacking-laravel-custom-relationships-in-eloquent/
+ * @license   MIT
  */
 namespace App\Database\Models;
 
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Model as LaravelModel;
 /**
  * Model Class
  *
- * UserFrosting's base data model, from which all UserFrosting data classes extend.
+ * An extension of Laravel's Model class, used to implement custom relationships.
  * @author Alex Weissman (https://alexanderweissman.com)
  */
 abstract class Model extends LaravelModel
