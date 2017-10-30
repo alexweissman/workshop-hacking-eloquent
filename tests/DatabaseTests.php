@@ -110,20 +110,21 @@ class DatabaseTests extends TestCase
             $table->integer('role_id')->unsigned();
         });
 
+        $this->schema($this->schemaName)->create('jobs', function($table) {
+            $table->integer('user_id')->unsigned();
+            $table->integer('location_id')->unsigned();
+            $table->integer('role_id')->unsigned();
+            $table->string('title');
+        });
+
         $this->schema($this->schemaName)->create('roles', function ($table) {
             $table->increments('id');
             $table->string('slug');
         });
 
-        // And Roles have multiple permissions... (m:m)
-        $this->schema($this->schemaName)->create('permission_roles', function ($table) {
-            $table->integer('permission_id')->unsigned();
-            $table->integer('role_id')->unsigned();
-        });
-
-        $this->schema($this->schemaName)->create('permissions', function($table) {
+        $this->schema($this->schemaName)->create('locations', function($table) {
             $table->increments('id');
-            $table->string('slug');
+            $table->string('name');
         });
     }
 
@@ -137,8 +138,8 @@ class DatabaseTests extends TestCase
         $this->schema($this->schemaName)->drop('users');
         $this->schema($this->schemaName)->drop('role_users');
         $this->schema($this->schemaName)->drop('roles');
-        $this->schema($this->schemaName)->drop('permission_roles');
-        $this->schema($this->schemaName)->drop('permissions');
+        $this->schema($this->schemaName)->drop('jobs');
+        $this->schema($this->schemaName)->drop('locations');
 
         Relation::morphMap([], false);
     }
@@ -148,13 +149,13 @@ class DatabaseTests extends TestCase
      */
     public function testBelongsToManyRelationship()
     {
-        $this->generateRolesWithPermissions();
+        $this->generateRoles();
 
         $user = EloquentTestUser::create(['name' => 'David']);
 
         $user->roles()->attach([1,2]);
 
-        // Test retrieval of via models as well
+        // Test retrieval of pivots as well
         $this->assertEquals([
             [
                 'id' => 1,
@@ -175,157 +176,224 @@ class DatabaseTests extends TestCase
         ], $user->roles->toArray());
     }
 
-    /**
-     * Test the ability of a BelongsToManyThrough relationship to retrieve structured data on a single model or set of models.
-     */
-    public function testBelongsToManyThrough()
+    public function testBelongsToTernary()
     {
-        $this->generateRolesWithPermissions();
-
         $user = EloquentTestUser::create(['name' => 'David']);
 
-        $user->roles()->attach([1,2]);
+        $this->generateLocations();
+        $this->generateRoles();
+        $this->generateJobs();
 
-        // Test retrieval of via models as well
+        $expectedRoles = [
+            [
+                'id' => 2,
+                'slug' => 'soldier',
+                'pivot' => [
+                    'user_id' => 1,
+                    'role_id' => 2
+                ]
+            ],
+            [
+                'id' => 3,
+                'slug' => 'egg-layer',
+                'pivot' => [
+                    'user_id' => 1,
+                    'role_id' => 3
+                ]
+            ]
+        ];
+
+        $roles = $user->jobRoles;
+        $this->assertEquals($expectedRoles, $roles->toArray());
+    }
+
+    public function testBelongsToTernaryEagerLoad()
+    {
+        $user = EloquentTestUser::create(['name' => 'David']);
+
+        $this->generateLocations();
+        $this->generateRoles();
+        $this->generateJobs();
+
+        $expectedRoles = [
+            [
+                'id' => 2,
+                'slug' => 'soldier',
+                'pivot' => [
+                    'user_id' => 1,
+                    'role_id' => 2
+                ]
+            ],
+            [
+                'id' => 3,
+                'slug' => 'egg-layer',
+                'pivot' => [
+                    'user_id' => 1,
+                    'role_id' => 3
+                ]
+            ]
+        ];
+
+        $users = EloquentTestUser::with('jobRoles')->get();
+        $this->assertEquals($expectedRoles, $users->toArray()[0]['job_roles']);
+    }
+
+    public function testBelongsToTernaryWithTertiary()
+    {
+        $user = EloquentTestUser::create(['name' => 'David']);
+
+        $this->generateLocations();
+        $this->generateRoles();
+        $this->generateJobs();
+
+        $expectedJobs = [
+            [
+                'id' => 2,
+                'slug' => 'soldier',
+                'pivot' => [
+                    'user_id' => 1,
+                    'role_id' => 2
+                ],
+                'locations' => [
+                    [
+                        'id' => 1,
+                        'name' => 'Hatchery',
+                        'pivot' => [
+                            'title' => 'Grunt',
+                            'location_id' => 1,
+                            'role_id' => 2
+                        ]
+                    ],
+                    [
+                        'id' => 2,
+                        'name' => 'Nexus',
+                        'pivot' => [
+                            'title' => 'Sergeant',
+                            'location_id' => 2,
+                            'role_id' => 2
+                        ]
+                    ]
+                ]
+            ],
+            [
+                'id' => 3,
+                'slug' => 'egg-layer',
+                'pivot' => [
+                    'user_id' => 1,
+                    'role_id' => 3
+                ],
+                'locations' => [
+                    [
+                        'id' => 2,
+                        'name' => 'Nexus',
+                        'pivot' => [
+                            'title' => 'Queen',
+                            'location_id' => 2,
+                            'role_id' => 3
+                        ]
+                    ]
+                ]
+            ]
+        ];
+
+        $jobs = $user->jobs()->withPivot('title')->get();
+        $this->assertEquals($expectedJobs, $jobs->toArray());
+
+        // Test eager loading
+        $users = EloquentTestUser::with(['jobs' => function ($relation) {
+            return $relation->withPivot('title');
+        }])->get();
+
+        $this->assertEquals($expectedJobs, $users->toArray()[0]['jobs']);
+    }
+
+    public function testBelongsToTernaryWithTertiaryEagerLoad()
+    {
+        $user1 = EloquentTestUser::create(['name' => 'David']);
+        $user2 = EloquentTestUser::create(['name' => 'Alex']);
+
+        $this->generateLocations();
+        $this->generateRoles();
+        $this->generateJobs();
+
+        $users = EloquentTestUser::with('jobs')->get();
+
         $this->assertEquals([
             [
                 'id' => 1,
-                'slug' => 'uri_harvest',
-                'pivot' => [
-                    'user_id' => 1,
-                    'permission_id' => 1
+                'name' => 'David',
+                'jobs' => [
+                    [
+                        'id' => 2,
+                        'slug' => 'soldier',
+                        'pivot' => [
+                            'user_id' => 1,
+                            'role_id' => 2
+                        ],
+                        'locations' => [
+                            [
+                                'id' => 1,
+                                'name' => 'Hatchery',
+                                'pivot' => [
+                                    'location_id' => 1,
+                                    'role_id' => 2
+                                ]
+                            ],
+                            [
+                                'id' => 2,
+                                'name' => 'Nexus',
+                                'pivot' => [
+                                    'location_id' => 2,
+                                    'role_id' => 2
+                                ]
+                            ]
+                        ]
+                    ],
+                    [
+                        'id' => 3,
+                        'slug' => 'egg-layer',
+                        'pivot' => [
+                            'user_id' => 1,
+                            'role_id' => 3
+                        ],
+                        'locations' => [
+                            [
+                                'id' => 2,
+                                'name' => 'Nexus',
+                                'pivot' => [
+                                    'location_id' => 2,
+                                    'role_id' => 3
+                                ]
+                            ]
+                        ]
+                    ]
                 ]
             ],
             [
                 'id' => 2,
-                'slug' => 'uri_spit_acid',
-                'pivot' => [
-                    'user_id' => 1,
-                    'permission_id' => 2
-                ]
-            ],
-            [
-                'id' => 3,
-                'slug' => 'uri_slash',
-                'pivot' => [
-                    'user_id' => 1,
-                    'permission_id' => 3
-                ]
-            ]
-        ], $user->permissions->toArray());
-
-        // Test counting
-        $this->assertEquals(3, $user->permissions()->count());
-
-        $user2 = EloquentTestUser::create(['name' => 'Alex']);
-        $user2->roles()->attach([2,3]);
-
-        // Test eager load
-        $users = EloquentTestUser::with('permissions')->get();
-        $usersWithPermissions = $users->toArray();
-
-        $this->assertEquals([
-            [
-                'id' => 2,
-                'slug' => 'uri_spit_acid',
-                'pivot' => [
-                    'user_id' => 2,
-                    'permission_id' => 2
-                ]
-            ],
-            [
-                'id' => 3,
-                'slug' => 'uri_slash',
-                'pivot' => [
-                    'user_id' => 2,
-                    'permission_id' => 3
-                ]
-            ],
-            [
-                'id' => 4,
-                'slug' => 'uri_royal_jelly',
-                'pivot' => [
-                    'user_id' => 2,
-                    'permission_id' => 4
+                'name' => 'Alex',
+                'jobs' => [
+                    [
+                        'id' => 3,
+                        'slug' => 'egg-layer',
+                        'pivot' => [
+                            'user_id' => 2,
+                            'role_id' => 3
+                        ],
+                        'locations' => [
+                            [
+                                'id' => 1,
+                                'name' => 'Hatchery',
+                                'pivot' => [
+                                    'location_id' => 1,
+                                    'role_id' => 3
+                                ]
+                            ],
+                        ]
+                    ]
                 ]
             ]
-        ],$usersWithPermissions[1]['permissions']);
-
-        // Test counting related models (withCount)
-        $users = EloquentTestUser::withCount('permissions')->get();
-        $this->assertEquals(3, $users[0]->permissions_count);
-        $this->assertEquals(3, $users[1]->permissions_count);
-
-        $this->assertInstanceOf(EloquentTestPermission::class, $users[0]->permissions[0]);
-        $this->assertInstanceOf(EloquentTestPermission::class, $users[0]->permissions[1]);
-        $this->assertInstanceOf(EloquentTestPermission::class, $users[0]->permissions[2]);
-    }
-
-    /**
-     * Test the ability of a BelongsToManyThrough relationship to retrieve and count paginated queries.
-     */
-    public function testBelongsToManyThroughPaginated()
-    {
-        $this->generateRolesWithPermissions();
-
-        $user = EloquentTestUser::create(['name' => 'David']);
-
-        $user->roles()->attach([1,2]);
-
-        $paginatedPermissions = $user->permissions()->take(2)->offset(1);
-
-        $this->assertEquals([
-            [
-                'id' => 2,
-                'slug' => 'uri_spit_acid',
-                'pivot' => [
-                    'user_id' => 1,
-                    'permission_id' => 2
-                ]
-            ],
-            [
-                'id' => 3,
-                'slug' => 'uri_slash',
-                'pivot' => [
-                    'user_id' => 1,
-                    'permission_id' => 3
-                ]
-            ]
-        ], $paginatedPermissions->get()->toArray());
-
-        $this->assertEquals(2, $paginatedPermissions->count());
-    }
-
-    /**
-     * Test the ability of a BelongsToManyThrough relationship to retrieve structured data on a single model or set of models,
-     * eager loading the "via" models at the same time.
-     */
-    public function testBelongsToManyThroughWithVia()
-    {
-        $this->generateRolesWithPermissions();
-
-        $user = EloquentTestUser::create(['name' => 'David']);
-
-        $user->roles()->attach([1,2]);
-
-        // Test retrieval of via models as well
-        $this->assertBelongsToManyThroughForDavid($user->permissions()->withVia('roles_via')->get()->toArray());
-
-        $user2 = EloquentTestUser::create(['name' => 'Alex']);
-        $user2->roles()->attach([2,3]);
-
-        // Test eager loading
-        $users = EloquentTestUser::with(['permissions' => function ($query) {
-            return $query->withVia('roles_via');
-        }])->get();
-
-        $this->assertInstanceOf(EloquentTestPermission::class, $users[0]->permissions[0]);
-        $this->assertInstanceOf(EloquentTestRole::class, $users[0]->permissions[0]->roles_via[0]);
-
-        $usersWithPermissions = $users->toArray();
-
-        $this->assertBelongsToManyThroughForDavid($usersWithPermissions[0]['permissions']);
-        $this->assertBelongsToManyThroughForAlex($usersWithPermissions[1]['permissions']);
+        ], $users->toArray());
     }
 
     /**
@@ -352,6 +420,50 @@ class DatabaseTests extends TestCase
         return $this->connection($connection)->getSchemaBuilder();
     }
 
+    /**
+     * Generate some sample jobs.  A job is a unique triplet of role, location, and user.
+     */
+    protected function generateJobs()
+    {
+        /**
+         * Sample data
+
+        | user_id | role_id | location_id |
+        |---------|---------|-------------|
+        | 1       | 2       | 1           |
+        | 1       | 2       | 2           |
+        | 1       | 3       | 2           |
+        | 2       | 3       | 1           |
+        */
+
+        return [
+            EloquentTestJob::create([
+                'role_id' => 2,
+                'location_id' => 1,
+                'user_id' => 1,
+                'title' => 'Grunt'
+            ]),
+            EloquentTestJob::create([
+                'role_id' => 2,
+                'location_id' => 2,
+                'user_id' => 1,
+                'title' => 'Sergeant'
+            ]),
+            EloquentTestJob::create([
+                'role_id' => 3,
+                'location_id' => 2,
+                'user_id' => 1,
+                'title' => 'Queen'
+            ]),
+            EloquentTestJob::create([
+                'role_id' => 3,
+                'location_id' => 1,
+                'user_id' => 2,
+                'title' => 'Demi-queen'
+            ])
+        ];
+    }
+
     protected function generateRoles()
     {
         return [
@@ -372,143 +484,19 @@ class DatabaseTests extends TestCase
         ];
     }
 
-    protected function generatePermissions()
+    protected function generateLocations()
     {
         return [
-            EloquentTestPermission::create([
+            EloquentTestLocation::create([
                 'id' => 1,
-                'slug' => 'uri_harvest'
+                'name' => 'Hatchery'
             ]),
 
-            EloquentTestPermission::create([
+            EloquentTestLocation::create([
                 'id' => 2,
-                'slug' => 'uri_spit_acid'
-            ]),
-
-            EloquentTestPermission::create([
-                'id' => 3,
-                'slug' => 'uri_slash'
-            ]),
-
-            EloquentTestPermission::create([
-                'id' => 4,
-                'slug' => 'uri_royal_jelly'
+                'name' => 'Nexus'
             ])
         ];
-    }
-
-    protected function generateRolesWithPermissions()
-    {
-        $roles = $this->generateRoles();
-
-        $this->generatePermissions();
-
-        $roles[0]->permissions()->attach([1,2]);
-        // We purposefully want a permission that belongs to more than one role
-        $roles[1]->permissions()->attach([2,3]);
-        $roles[2]->permissions()->attach([2,4]);
-
-        return $roles;
-    }
-
-    protected function assertBelongsToManyThroughForDavid($permissions)
-    {
-        // User should have effective permissions uri_harvest, uri_spit_acid, and uri_slash.
-        // We also check that the 'roles_via' relationship is properly set.
-        $this->assertEquals('uri_harvest', $permissions[0]['slug']);
-        $this->assertArrayHasKey('roles_via', $permissions[0]);
-        $this->assertEquals([
-            [
-                'id' => 1,
-                'slug' => 'forager',
-                'pivot' => [
-                    'permission_id' => 1,
-                    'role_id' => 1
-                ]
-            ]
-        ], $permissions[0]['roles_via']);
-        $this->assertEquals('uri_spit_acid', $permissions[1]['slug']);
-        $this->assertArrayHasKey('roles_via', $permissions[1]);
-        $this->assertEquals([
-            [
-                'id' => 1,
-                'slug' => 'forager',
-                'pivot' => [
-                    'permission_id' => 2,
-                    'role_id' => 1
-                ]
-            ],
-            [
-                'id' => 2,
-                'slug' => 'soldier',
-                'pivot' => [
-                    'permission_id' => 2,
-                    'role_id' => 2
-                ]
-            ]
-        ], $permissions[1]['roles_via']);
-        $this->assertEquals('uri_slash', $permissions[2]['slug']);
-        $this->assertArrayHasKey('roles_via', $permissions[2]);
-        $this->assertEquals([
-            [
-                'id' => 2,
-                'slug' => 'soldier',
-                'pivot' => [
-                    'permission_id' => 3,
-                    'role_id' => 2
-                ]
-            ]
-        ], $permissions[2]['roles_via']);
-    }
-
-    protected function assertBelongsToManyThroughForAlex($permissions)
-    {
-        // User should have effective permissions uri_spit_acid, uri_slash, and uri_royal_jelly.
-        // We also check that the 'roles_via' relationship is properly set.
-        $this->assertEquals('uri_spit_acid', $permissions[0]['slug']);
-        $this->assertArrayHasKey('roles_via', $permissions[0]);
-        $this->assertEquals([
-            [
-                'id' => 2,
-                'slug' => 'soldier',
-                'pivot' => [
-                    'permission_id' => 2,
-                    'role_id' => 2
-                ]
-            ],
-            [
-                'id' => 3,
-                'slug' => 'egg-layer',
-                'pivot' => [
-                    'permission_id' => 2,
-                    'role_id' => 3
-                ]
-            ]
-        ], $permissions[0]['roles_via']);
-        $this->assertEquals('uri_slash', $permissions[1]['slug']);
-        $this->assertArrayHasKey('roles_via', $permissions[1]);
-        $this->assertEquals([
-            [
-                'id' => 2,
-                'slug' => 'soldier',
-                'pivot' => [
-                    'permission_id' => 3,
-                    'role_id' => 2
-                ]
-            ]
-        ], $permissions[1]['roles_via']);
-        $this->assertEquals('uri_royal_jelly', $permissions[2]['slug']);
-        $this->assertArrayHasKey('roles_via', $permissions[2]);
-        $this->assertEquals([
-            [
-                'id' => 3,
-                'slug' => 'egg-layer',
-                'pivot' => [
-                    'permission_id' => 4,
-                    'role_id' => 3
-                ]
-            ]
-        ], $permissions[2]['roles_via']);
     }
 }
 
@@ -528,54 +516,57 @@ class EloquentTestUser extends EloquentTestModel
     protected $guarded = [];
 
     /**
+     * Get all of the user's unique roles based on their jobs.
+     */
+    public function jobRoles()
+    {
+        $relation = $this->belongsToTernary(
+            EloquentTestRole::class,
+            'jobs',
+            'user_id',
+            'role_id'
+        );
+
+        return $relation;
+    }
+
+    /**
+     * Get all of the user's unique roles based on their jobs as a tertiary relationship.
+     */
+    public function jobs()
+    {
+        $relation = $this->belongsToTernary(
+            EloquentTestRole::class,
+            'jobs',
+            'user_id',
+            'role_id'
+        )->withTertiary(EloquentTestLocation::class, null, 'location_id');
+
+        return $relation;
+    }
+
+    /**
      * Get all roles to which this user belongs.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
     public function roles()
     {
-        return $this->belongsToMany('App\Tests\EloquentTestRole', 'role_users', 'user_id', 'role_id');
+        return $this->belongsToMany(EloquentTestRole::class, 'role_users', 'user_id', 'role_id');
     }
+}
+
+class EloquentTestJob extends EloquentTestModel
+{
+    protected $table = 'jobs';
+    protected $guarded = [];
 
     /**
-     * Get all of the permissions this user has, via its roles.
-     *
-     * @return \UserFrosting\Sprinkle\Core\Database\Relations\BelongsToManyThrough
+     * Get the role for this job.
      */
-    public function permissions()
+    public function role()
     {
-        return $this->belongsToManyThrough(
-            'App\Tests\EloquentTestPermission',
-            'App\Tests\EloquentTestRole',
-            'role_users',
-            'user_id',
-            'role_id',
-            'permission_roles',
-            'role_id',
-            'permission_id'
-        );
-    }
-}
-
-class EloquentTestEmail extends EloquentTestModel
-{
-    protected $table = 'emails';
-    protected $guarded = [];
-
-    public function user()
-    {
-        return $this->belongsTo('App\Tests\EloquentTestUser', 'user_id');
-    }
-}
-
-class EloquentTestPhone extends EloquentTestModel
-{
-    protected $table = 'phones';
-    protected $guarded = [];
-
-    public function phoneable()
-    {
-        return $this->morphTo();
+        return $this->belongsTo(EloquentTestRole::class, 'role_id');
     }
 }
 
@@ -583,26 +574,10 @@ class EloquentTestRole extends EloquentTestModel
 {
     protected $table = 'roles';
     protected $guarded = [];
-
-    /**
-     * Get a list of permissions assigned to this role.
-     */
-    public function permissions()
-    {
-        return $this->belongsToMany('App\Tests\EloquentTestPermission', 'permission_roles', 'role_id', 'permission_id');
-    }
 }
 
-class EloquentTestPermission extends EloquentTestModel
+class EloquentTestLocation extends EloquentTestModel
 {
-    protected $table = 'permissions';
+    protected $table = 'locations';
     protected $guarded = [];
-
-    /**
-     * Get a list of roles that have this permission.
-     */
-    public function roles()
-    {
-        return $this->belongsToMany('App\Tests\EloquentTestRole', 'permission_roles', 'permission_id', 'role_id');
-    }
 }

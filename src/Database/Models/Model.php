@@ -8,7 +8,7 @@
  */
 namespace App\Database\Models;
 
-use App\Database\Relations\BelongsToManyThrough;
+use App\Database\Relations\BelongsToTernary;
 use Illuminate\Database\Eloquent\Model as LaravelModel;
 
 /**
@@ -20,33 +20,14 @@ use Illuminate\Database\Eloquent\Model as LaravelModel;
 abstract class Model extends LaravelModel
 {
     /**
-     * Define a many-to-many 'through' relationship.
-     * This is basically hasManyThrough for many-to-many relationships.
+     * Define a ternary (many-to-many-to-many) relationship.
      *
-     * @param  string  $related
-     * @param  string  $through
-     * @param  string  $firstJoiningTable
-     * @param  string  $firstForeignKey
-     * @param  string  $firstRelatedKey
-     * @param  string  $secondJoiningTable
-     * @param  string  $secondForeignKey
-     * @param  string  $secondRelatedKey
-     * @param  string  $throughRelation
-     * @param  string  $relation
-     * @return \UserFrosting\Sprinkle\Core\Database\Relations\BelongsToManyThrough
+     * Similar to a regular many-to-many relationship, but removes duplicate child objects.
+     * Can also retrieve tertiary related models using the `withTertiary` method.
+     * {@inheritDoc}
+     * @return \App\Database\Relations\BelongsToTernary
      */
-    public function belongsToManyThrough(
-        $related,
-        $through,
-        $firstJoiningTable = null,
-        $firstForeignKey = null,
-        $firstRelatedKey = null,
-        $secondJoiningTable = null,
-        $secondForeignKey = null,
-        $secondRelatedKey = null,
-        $throughRelation = null,
-        $relation = null
-    )
+    public function belongsToTernary($related, $table = null, $foreignKey = null, $relatedKey = null, $relation = null)
     {
         // If no relationship name was passed, we will pull backtraces to get the
         // name of the calling function. We will use that function name as the
@@ -55,39 +36,24 @@ abstract class Model extends LaravelModel
             $relation = $this->guessBelongsToManyRelation();
         }
 
-        // Create models for through and related
-        $through = new $through;
-        $related = $this->newRelatedInstance($related);
+        // First, we'll need to determine the foreign key and "other key" for the
+        // relationship. Once we have determined the keys we'll make the query
+        // instances as well as the relationship instances we need for this.
+        $instance = $this->newRelatedInstance($related);
 
-        if (is_null($throughRelation)) {
-            $throughRelation = $through->getTable();
+        $foreignKey = $foreignKey ?: $this->getForeignKey();
+
+        $relatedKey = $relatedKey ?: $instance->getForeignKey();
+
+        // If no table name was provided, we can guess it by concatenating the two
+        // models using underscores in alphabetical order. The two model names
+        // are transformed to snake case from their default CamelCase also.
+        if (is_null($table)) {
+            $table = $this->joiningTable($related);
         }
 
-        // If no table names were provided, we can guess it by concatenating the parent
-        // and through table names. The two model names are transformed to snake case
-        // from their default CamelCase also.
-        if (is_null($firstJoiningTable)) {
-            $firstJoiningTable = $this->joiningTable($through);
-        }
-
-        if (is_null($secondJoiningTable)) {
-            $secondJoiningTable = $through->joiningTable($related);
-        }
-
-        $firstForeignKey = $firstForeignKey ?: $this->getForeignKey();
-        $firstRelatedKey = $firstRelatedKey ?: $through->getForeignKey();
-        $secondForeignKey = $secondForeignKey ?: $through->getForeignKey();
-        $secondRelatedKey = $secondRelatedKey ?: $related->getForeignKey();
-
-        // This relationship maps the top model (this) to the through model.
-        $intermediateRelationship = $this->belongsToMany($through, $firstJoiningTable, $firstForeignKey, $firstRelatedKey, $throughRelation)
-            ->withPivot($firstForeignKey);
-
-        // Now we set up the relationship with the related model.
-        $query = new BelongsToManyThrough(
-            $related->newQuery(), $this, $intermediateRelationship, $secondJoiningTable, $secondForeignKey, $secondRelatedKey, $relation
+        return new BelongsToTernary(
+            $instance->newQuery(), $this, $table, $foreignKey, $relatedKey, $relation
         );
-
-        return $query;
     }
 }
