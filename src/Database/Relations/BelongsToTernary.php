@@ -336,8 +336,10 @@ class BelongsToTernary extends BelongsToMany
      */
     protected function condenseModels(array $models)
     {
-        // TODO: Remove duplicate models from $models
+        // TODO: Remove duplicate models from $models (easy mode)
 
+        // TODO: Extract tertiary models from $models and create nested
+        // tertiary relationships under each related child model (hard mode)
         return $models;
     }
 
@@ -353,65 +355,37 @@ class BelongsToTernary extends BelongsToMany
      */
     protected function buildDictionary(Collection $results, $parentKey = null)
     {
-        // First we will build a dictionary of child models keyed by the "parent key" (foreign key
-        // of the intermediate relation) so that we will easily and quickly match them to their
-        // parents without having a possibly slow inner loop for every model.
+        // First we will build a dictionary of child models keyed by the foreign key
+        // of the relation so that we will easily and quickly match them to their
+        // parents without having a possibly slow inner loops for every models.
         $dictionary = [];
 
+        // TODO: you'll need to modify this method to retrieve tertiary models
+        // and then build out a nested dictionary that maps
+        // parent model -> child model -> tertiary model (hard mode)
+        //
         //Example nested dictionary:
         //[
         //    // User 1
         //    '1' => [
-        //        // Permission 3
+        //        // Role 3
         //        '3' => [
-        //            Role1,
-        //            Role2
+        //            Location1,
+        //            Location2
         //        ],
         //        ...
         //    ],
         //    ...
         //]
         $nestedTertiaryDictionary = null;
-        $tertiaryModels = null;
 
         foreach ($results as $result) {
             $parentKeyValue = $result->pivot->$parentKey;
 
-            // Set the related model in the main dictionary.
-            // Note that this can end up adding duplicate models.  It's cheaper to simply
-            // go back and remove the duplicates when we actually use the dictionary,
-            // rather than check for duplicates on each insert.
             $dictionary[$parentKeyValue][] = $result;
         }
 
         return [$dictionary, $nestedTertiaryDictionary];
-    }
-
-    /**
-     * Build dictionary of tertiary models keyed by the corresponding related model keys.
-     *
-     * @param  array  $models
-     * @return array
-     */
-    protected function buildTertiaryDictionary(array $models)
-    {
-        $dictionary = [];
-
-        // Find the related tertiary entities (e.g. tasks) for all related models (e.g. locations)
-        $tertiaryModels = $this->getTertiaryModels($models);
-
-        // Now for each related model (e.g. location), we will build out a dictionary of their tertiary models (e.g. tasks)
-        foreach ($models as $model) {
-            $tertiaryKeyValue = $model->pivot->{$this->tertiaryKey};
-
-            $tertiaryModel = clone $tertiaryModels[$tertiaryKeyValue];
-
-            $this->transferPivotsToTertiary($model, $tertiaryModel);
-
-            $dictionary[$model->getKey()][] = $tertiaryModel;
-        }
-
-        return $dictionary;
     }
 
     /**

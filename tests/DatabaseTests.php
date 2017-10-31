@@ -238,7 +238,10 @@ class DatabaseTests extends TestCase
         $this->assertEquals($expectedRoles, $users->toArray()[0]['job_roles']);
     }
 
-    public function testBelongsToTernaryWithTertiary()
+    /**
+     * @dataProvider jobsProvider
+     */
+    public function testBelongsToTernaryWithTertiary($expectedJobs)
     {
         $user = EloquentTestUser::create(['name' => 'David']);
 
@@ -246,71 +249,16 @@ class DatabaseTests extends TestCase
         $this->generateRoles();
         $this->generateJobs();
 
-        $expectedJobs = [
-            [
-                'id' => 2,
-                'slug' => 'soldier',
-                'pivot' => [
-                    'user_id' => 1,
-                    'role_id' => 2
-                ],
-                'locations' => [
-                    [
-                        'id' => 1,
-                        'name' => 'Hatchery',
-                        'pivot' => [
-                            'title' => 'Grunt',
-                            'location_id' => 1,
-                            'role_id' => 2
-                        ]
-                    ],
-                    [
-                        'id' => 2,
-                        'name' => 'Nexus',
-                        'pivot' => [
-                            'title' => 'Sergeant',
-                            'location_id' => 2,
-                            'role_id' => 2
-                        ]
-                    ]
-                ]
-            ],
-            [
-                'id' => 3,
-                'slug' => 'egg-layer',
-                'pivot' => [
-                    'user_id' => 1,
-                    'role_id' => 3
-                ],
-                'locations' => [
-                    [
-                        'id' => 2,
-                        'name' => 'Nexus',
-                        'pivot' => [
-                            'title' => 'Queen',
-                            'location_id' => 2,
-                            'role_id' => 3
-                        ]
-                    ]
-                ]
-            ]
-        ];
-
-        $jobs = $user->jobs()->withPivot('title')->get();
+        $jobs = $user->jobs()->get();
         $this->assertEquals($expectedJobs, $jobs->toArray());
-
-        // Test eager loading
-        $users = EloquentTestUser::with(['jobs' => function ($relation) {
-            return $relation->withPivot('title');
-        }])->get();
-
-        $this->assertEquals($expectedJobs, $users->toArray()[0]['jobs']);
     }
 
-    public function testBelongsToTernaryWithTertiaryEagerLoad()
+    /**
+     * @dataProvider jobsProvider
+     */
+    public function testBelongsToTernaryWithTertiaryEagerLoad($expectedJobs)
     {
-        $user1 = EloquentTestUser::create(['name' => 'David']);
-        $user2 = EloquentTestUser::create(['name' => 'Alex']);
+        $user = EloquentTestUser::create(['name' => 'David']);
 
         $this->generateLocations();
         $this->generateRoles();
@@ -318,11 +266,47 @@ class DatabaseTests extends TestCase
 
         $users = EloquentTestUser::with('jobs')->get();
 
-        $this->assertEquals([
+        $this->assertEquals($expectedJobs, $users->toArray()[0]['jobs']);
+    }
+
+    /**
+     * @dataProvider jobsWithTitleProvider
+     */
+    public function testBelongsToTernaryWithTertiaryAndPivots($expectedJobs)
+    {
+        $user = EloquentTestUser::create(['name' => 'David']);
+
+        $this->generateLocations();
+        $this->generateRoles();
+        $this->generateJobs();
+
+        $jobs = $user->jobs()->withPivot('title')->get();
+        $this->assertEquals($expectedJobs, $jobs->toArray());
+    }
+
+    /**
+     * @dataProvider jobsWithTitleProvider
+     */
+    public function testBelongsToTernaryEagerLoadWithTertiaryAndPivots($expectedJobs)
+    {
+        $user = EloquentTestUser::create(['name' => 'David']);
+
+        $this->generateLocations();
+        $this->generateRoles();
+        $this->generateJobs();
+
+        $users = EloquentTestUser::with(['jobs' => function ($relation) {
+            return $relation->withPivot('title');
+        }])->get();
+
+        $this->assertEquals($expectedJobs, $users->toArray()[0]['jobs']);
+    }
+
+    public function jobsProvider()
+    {
+        return [
             [
-                'id' => 1,
-                'name' => 'David',
-                'jobs' => [
+                [
                     [
                         'id' => 2,
                         'slug' => 'soldier',
@@ -368,32 +352,65 @@ class DatabaseTests extends TestCase
                         ]
                     ]
                 ]
-            ],
+            ]
+        ];
+    }
+
+    public function jobsWithTitleProvider()
+    {
+        return [
             [
-                'id' => 2,
-                'name' => 'Alex',
-                'jobs' => [
+                [
                     [
-                        'id' => 3,
-                        'slug' => 'egg-layer',
+                        'id' => 2,
+                        'slug' => 'soldier',
                         'pivot' => [
-                            'user_id' => 2,
-                            'role_id' => 3
+                            'user_id' => 1,
+                            'role_id' => 2
                         ],
                         'locations' => [
                             [
                                 'id' => 1,
                                 'name' => 'Hatchery',
                                 'pivot' => [
+                                    'title' => 'Grunt',
                                     'location_id' => 1,
-                                    'role_id' => 3
+                                    'role_id' => 2
                                 ]
                             ],
+                            [
+                                'id' => 2,
+                                'name' => 'Nexus',
+                                'pivot' => [
+                                    'title' => 'Sergeant',
+                                    'location_id' => 2,
+                                    'role_id' => 2
+                                ]
+                            ]
+                        ]
+                    ],
+                    [
+                        'id' => 3,
+                        'slug' => 'egg-layer',
+                        'pivot' => [
+                            'user_id' => 1,
+                            'role_id' => 3
+                        ],
+                        'locations' => [
+                            [
+                                'id' => 2,
+                                'name' => 'Nexus',
+                                'pivot' => [
+                                    'title' => 'Queen',
+                                    'location_id' => 2,
+                                    'role_id' => 3
+                                ]
+                            ]
                         ]
                     ]
                 ]
             ]
-        ], $users->toArray());
+        ];
     }
 
     /**
@@ -531,7 +548,7 @@ class EloquentTestUser extends EloquentTestModel
     }
 
     /**
-     * Get all of the user's unique roles based on their jobs as a tertiary relationship.
+     * Get all of the user's unique roles based on their jobs, with locations nested as a tertiary relationship.
      */
     public function jobs()
     {
