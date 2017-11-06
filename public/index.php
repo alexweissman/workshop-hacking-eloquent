@@ -17,7 +17,7 @@ ob_start();
 $runner = new PHPUnit_TextUI_TestRunner;
 $runner->doRun($suite, [], false);
 $result = ob_get_clean();
-    
+
 echo "<html><head></head><body>";
 echo "<pre>";
 print_r($result);

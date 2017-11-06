@@ -27,6 +27,9 @@ use Monolog\Logger;
 
 use PHPUnit\Framework\TestCase;
 
+use UserFrosting\Support\Repository\Loader\YamlFileLoader;
+use UserFrosting\Support\Repository\Repository;
+
 /**
  * Class DatabaseTests.
  *
@@ -40,12 +43,12 @@ class DatabaseTests extends TestCase
 
     public static function setUpBeforeClass()
     {
+        $loader = new YamlFileLoader(__DIR__ . '/../config/database.yaml');
+        $config = new Repository($loader->load());
+
         $capsule = new DB;
 
-        $capsule->addConnection([
-            'driver'    => 'sqlite',
-            'database'  => ':memory:'
-        ]);
+        $capsule->addConnection($config->all());
 
         $queryEventDispatcher = new Dispatcher(new Container);
 
