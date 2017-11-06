@@ -7,6 +7,6 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Prophecy\\' => array($vendorDir . '/phpspec/prophecy/src'),
-    'Mockery' => array($vendorDir . '/mockery/mockery/library'),
+    'Pimple' => array($vendorDir . '/pimple/pimple/src'),
     'Doctrine\\Common\\Inflector\\' => array($vendorDir . '/doctrine/inflector/lib'),
 );

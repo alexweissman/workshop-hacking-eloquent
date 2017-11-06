@@ -1,0 +1,28 @@
+{
+    "name": "userfrosting/support",
+    "type": "library",
+    "description": "Support classes for UserFrosting and UF modules",
+    "keywords": ["userfrosting", "support", "exception"],
+    "homepage": "https://github.com/userfrosting/support",
+    "license" : "MIT",
+    "authors" : [
+        {
+            "name": "Alexander Weissman",
+            "homepage": "https://alexanderweissman.com"
+        }
+    ],
+    "require": {
+        "illuminate/config": "^5.4",
+        "php": ">=5.6.0",
+        "rockettheme/toolbox": "~1.3.0",
+        "symfony/yaml": "^3.3"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^5.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "UserFrosting\\Support\\": "src"
+        }
+    }
+}
