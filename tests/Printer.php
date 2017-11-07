@@ -18,26 +18,33 @@ class Printer extends \PHPUnit_TextUI_ResultPrinter
 
     protected function printHeader()
     {
-        $this->write('<pre>');
         parent::printHeader();
-        $this->write('</pre>');
     }
 
     /**
      * @param PHPUnit_Framework_TestFailure $defect
-     * @param int                           $count
      */
-    protected function printDefect(\PHPUnit_Framework_TestFailure $defect, $count)
+    protected function printDefectTrace(\PHPUnit_Framework_TestFailure $defect)
     {
-        $this->write('<pre>');
-        parent::printDefect($defect, $count);
-        $this->write('</pre>');
+        $e = $defect->thrownException();
+        $this->writeRaw((string) $e);
+
+        while ($e = $e->getPrevious()) {
+            $this->write("\nCaused by\n" . $e);
+        }
     }
 
     /**
      * @param string $buffer
      */
     public function write($buffer)
+    {
+        $this->writeRaw('<pre>');
+        $this->writeRaw($buffer);
+        $this->writeRaw('</pre>');
+    }
+
+    public function writeRaw($buffer)
     {
         if ($this->out) {
             fwrite($this->out, $buffer);

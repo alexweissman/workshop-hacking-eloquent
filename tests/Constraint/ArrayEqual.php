@@ -57,8 +57,14 @@ class ArrayEqual extends \PHPUnit_Framework_Constraint_IsEqual
                 return false;
             }
 
+            $message = trim($description . "\n" . $f->getMessage());
+
+            if (PHP_SAPI != 'cli') {
+                $message = '<pre>' . $message . '</pre>';
+            }
+
             throw new \PHPUnit_Framework_ExpectationFailedException(
-                trim($description . "\n" . $f->getMessage()),
+                $message,
                 new \App\Tests\ArrayComparisonFailure(
                     $f->getExpected(),
                     $f->getActual(),

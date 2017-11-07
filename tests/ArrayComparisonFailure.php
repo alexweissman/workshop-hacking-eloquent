@@ -29,12 +29,15 @@ class ArrayComparisonFailure extends ComparisonFailure
 
         $result = "
         <table>
-            <tr><th>Expected</th><th>Actual</th></tr>
-            <tr><td><pre>" . print_r($this->expected, true) .
-            "</pre></td><td><pre>" .
+            <tr><th>Expected</th><th>Actual</th><th>Diff</th></tr>
+            <tr>
+            <td><pre>" . print_r($this->expected, true) . "</pre></td>
+            <td><pre>" .
             print_r($this->actual, true) .
-            "</pre></td></tr></table>
-        ";
+            "</pre></td>
+            <td><pre>" . $differ->diff($this->expectedAsString, $this->actualAsString) .
+            "</pre></td>
+            </tr></table>";
 
         /*
         $result =
