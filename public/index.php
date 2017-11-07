@@ -14,7 +14,7 @@ $suite->addTestSuite('App\Tests\DatabaseTests');
 
 // Shunt output of PHPUnit to a variable
 ob_start();
-$runner = new PHPUnit_TextUI_TestRunner;
+$runner = new App\Tests\TestRunner;
 $runner->doRun($suite, [
     'printer' => new App\Tests\Printer
 ], false);
@@ -27,6 +27,7 @@ print_r($result);
 
 echo "<hr>";
 
+echo "<h2>Query Log</h2>";
 echo "<pre>";
 $log = App\Tests\DatabaseTests::$arrayHandler->close();
 

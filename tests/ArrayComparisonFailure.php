@@ -27,7 +27,7 @@ class ArrayComparisonFailure extends ComparisonFailure
 
         $differ = new Differ("\n--- Expected\n+++ Actual\n");
 
-        if (PHP_SAPI == 'cli') {
+        if (PHP_SAPI == 'cli' || PHP_SAPI == 'phpdbg') {
             $result =
                 PHP_EOL . PHP_EOL .
                 'EXPECTED:' . PHP_EOL .
@@ -44,11 +44,14 @@ class ArrayComparisonFailure extends ComparisonFailure
             <table>
                 <tr><th>Expected</th><th>Actual</th><th>Diff</th></tr>
                 <tr>
-                <td><pre>" . print_r($this->expected, true) . "</pre></td>
-                <td><pre>" .
+                <td><pre class='code'>" .
+                print_r($this->expected, true) .
+                "</pre></td>
+                <td><pre class='code'>" .
                 print_r($this->actual, true) .
                 "</pre></td>
-                <td><pre>" . $differ->diff($this->expectedAsString, $this->actualAsString) .
+                <td><pre class='code'>" .
+                $differ->diff($this->expectedAsString, $this->actualAsString) .
                 "</pre></td>
                 </tr></table>";
         }

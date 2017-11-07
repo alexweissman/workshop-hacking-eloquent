@@ -15,6 +15,16 @@ pre {
     white-space: pre-wrap;
 }
 
+pre th {
+    color: #fafafa;
+}
+
+pre.code {
+    color: #333;
+    background: #fafafa;
+    text-shadow: none;
+}
+
 td {
     vertical-align: top;
 }
