@@ -39,9 +39,11 @@ class Printer extends \PHPUnit_TextUI_ResultPrinter
      */
     public function write($buffer)
     {
-        $this->writeRaw('<pre>');
+        if (PHP_SAPI != 'cli') {
+            $buffer = '<pre>' . $buffer . '</pre>';
+        }
+
         $this->writeRaw($buffer);
-        $this->writeRaw('</pre>');
     }
 
     public function writeRaw($buffer)

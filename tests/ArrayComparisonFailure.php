@@ -27,31 +27,32 @@ class ArrayComparisonFailure extends ComparisonFailure
 
         $differ = new Differ("\n--- Expected\n+++ Actual\n");
 
-        $result = "
-        <table>
-            <tr><th>Expected</th><th>Actual</th><th>Diff</th></tr>
-            <tr>
-            <td><pre>" . print_r($this->expected, true) . "</pre></td>
-            <td><pre>" .
-            print_r($this->actual, true) .
-            "</pre></td>
-            <td><pre>" . $differ->diff($this->expectedAsString, $this->actualAsString) .
-            "</pre></td>
-            </tr></table>";
+        if (PHP_SAPI == 'cli') {
+            $result =
+                PHP_EOL . PHP_EOL .
+                'EXPECTED:' . PHP_EOL .
+                '========' . PHP_EOL .
+                print_r($this->expected, true) . PHP_EOL . PHP_EOL .
+                'YOU GOT:' . PHP_EOL .
+                '=======' . PHP_EOL .
+                print_r($this->actual, true) . PHP_EOL . PHP_EOL .
+                'DIFF:' . PHP_EOL .
+                '====' .
+                $differ->diff($this->expectedAsString, $this->actualAsString);
+        } else {
+            $result = "
+            <table>
+                <tr><th>Expected</th><th>Actual</th><th>Diff</th></tr>
+                <tr>
+                <td><pre>" . print_r($this->expected, true) . "</pre></td>
+                <td><pre>" .
+                print_r($this->actual, true) .
+                "</pre></td>
+                <td><pre>" . $differ->diff($this->expectedAsString, $this->actualAsString) .
+                "</pre></td>
+                </tr></table>";
+        }
 
-        /*
-        $result =
-            PHP_EOL . PHP_EOL .
-            'EXPECTED:' . PHP_EOL .
-            '========' . PHP_EOL .
-            print_r($this->expected, true) . PHP_EOL . PHP_EOL .
-            'YOU GOT:' . PHP_EOL .
-            '=======' . PHP_EOL .
-            print_r($this->actual, true) . PHP_EOL . PHP_EOL .
-            'DIFF:' . PHP_EOL .
-            '====' .
-            $differ->diff($this->expectedAsString, $this->actualAsString);
-        */
         return $result;
     }
 }
