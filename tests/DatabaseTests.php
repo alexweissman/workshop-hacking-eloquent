@@ -146,9 +146,10 @@ class DatabaseTests extends TestCase
     }
 
     /**
-     * Tests...
+     * Basic sanity-checking test, to ensure the framework is functioning properly.
+     * Should not require any further work to pass.
      */
-    public function testBelongsToManyRelationship()
+    public function testBelongsToMany()
     {
         $this->generateRoles();
 
@@ -175,8 +176,12 @@ class DatabaseTests extends TestCase
                 ]
             ]
         ], $user->roles->toArray());
+        echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
+    /**
+     * Test basic relationship on a single model.  See task 1.
+     */
     public function testBelongsToTernary()
     {
         $user = EloquentTestUser::create(['name' => 'David']);
@@ -205,9 +210,13 @@ class DatabaseTests extends TestCase
         ];
 
         $roles = $user->jobRoles;
-        $this->assertArrayEqual($expectedRoles, $roles->toArray());
+        $this->assertArrayEqual($expectedRoles, $roles->toArray(), $this->getTaskFailureMessage(1));
+        echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
+    /**
+     * Test eager loading on a collection of parent models.  See task 2.
+     */
     public function testBelongsToTernaryEagerLoad()
     {
         $user = EloquentTestUser::create(['name' => 'David']);
@@ -236,10 +245,12 @@ class DatabaseTests extends TestCase
         ];
 
         $users = EloquentTestUser::with('jobRoles')->get();
-        $this->assertArrayEqual($expectedRoles, $users->toArray()[0]['job_roles']);
+        $this->assertArrayEqual($expectedRoles, $users->toArray()[0]['job_roles'], $this->getTaskFailureMessage(2));
+        echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
     /**
+     * Test loading of the tertiary relationship on a single model.  See task 3.
      * @dataProvider jobsProvider
      */
     public function testBelongsToTernaryWithTertiary($expectedJobs)
@@ -251,23 +262,8 @@ class DatabaseTests extends TestCase
         $this->generateJobs();
 
         $jobs = $user->jobs()->get();
-        $this->assertArrayEqual($expectedJobs, $jobs->toArray());
-    }
-
-    /**
-     * @dataProvider jobsProvider
-     */
-    public function testBelongsToTernaryWithTertiaryEagerLoad($expectedJobs)
-    {
-        $user = EloquentTestUser::create(['name' => 'David']);
-
-        $this->generateLocations();
-        $this->generateRoles();
-        $this->generateJobs();
-
-        $users = EloquentTestUser::with('jobs')->get();
-
-        $this->assertArrayEqual($expectedJobs, $users->toArray()[0]['jobs']);
+        $this->assertArrayEqual($expectedJobs, $jobs->toArray(), $this->getTaskFailureMessage(3));
+        echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
     /**
@@ -282,7 +278,25 @@ class DatabaseTests extends TestCase
         $this->generateJobs();
 
         $jobs = $user->jobs()->withPivot('title')->get();
-        $this->assertArrayEqual($expectedJobs, $jobs->toArray());
+        $this->assertArrayEqual($expectedJobs, $jobs->toArray(), $this->getTaskFailureMessage(3));
+        echo $this->getTaskSuccessMessage(__FUNCTION__);
+    }
+
+    /**
+     * @dataProvider jobsProvider
+     */
+    public function testBelongsToTernaryEagerLoadWithTertiary($expectedJobs)
+    {
+        $user = EloquentTestUser::create(['name' => 'David']);
+
+        $this->generateLocations();
+        $this->generateRoles();
+        $this->generateJobs();
+
+        $users = EloquentTestUser::with('jobs')->get();
+
+        $this->assertArrayEqual($expectedJobs, $users->toArray()[0]['jobs'], $this->getTaskFailureMessage(4));
+        echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
     /**
@@ -300,7 +314,8 @@ class DatabaseTests extends TestCase
             return $relation->withPivot('title');
         }])->get();
 
-        $this->assertArrayEqual($expectedJobs, $users->toArray()[0]['jobs']);
+        $this->assertArrayEqual($expectedJobs, $users->toArray()[0]['jobs'], $this->getTaskFailureMessage(4));
+        echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
     public function jobsProvider()
@@ -515,6 +530,16 @@ class DatabaseTests extends TestCase
                 'name' => 'Nexus'
             ])
         ];
+    }
+
+    protected function getTaskFailureMessage($taskNumber)
+    {
+        return "((+_+)) This test will pass when task $taskNumber has been implemented correctly.";
+    }
+
+    protected function getTaskSuccessMessage($test)
+    {
+        echo PHP_EOL . "(^_^) Success!  '$test' passed." . PHP_EOL;
     }
 }
 

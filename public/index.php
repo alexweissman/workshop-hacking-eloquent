@@ -14,17 +14,20 @@ $suite->addTestSuite('App\Tests\DatabaseTests');
 
 // Shunt output of PHPUnit to a variable
 ob_start();
-$runner = new PHPUnit_TextUI_TestRunner;
-$runner->doRun($suite, [], false);
+$runner = new App\Tests\TestRunner;
+$runner->doRun($suite, [
+    'printer' => new App\Tests\Printer
+], false);
 $result = ob_get_clean();
 
-echo "<html><head></head><body>";
-echo "<pre>";
+echo "<body>";
+include 'head.php';
+
 print_r($result);
-echo "</pre>";
 
 echo "<hr>";
 
+echo "<h2>Query Log</h2>";
 echo "<pre>";
 $log = App\Tests\DatabaseTests::$arrayHandler->close();
 
