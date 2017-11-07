@@ -25,8 +25,6 @@ use Monolog\Handler\ErrorLogHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 
-use PHPUnit\Framework\TestCase;
-
 use UserFrosting\Support\Repository\Loader\YamlFileLoader;
 use UserFrosting\Support\Repository\Repository;
 
@@ -159,7 +157,7 @@ class DatabaseTests extends TestCase
         $user->roles()->attach([1,2]);
 
         // Test retrieval of pivots as well
-        $this->assertEquals([
+        $this->assertArrayEqual([
             [
                 'id' => 1,
                 'slug' => 'forager',
@@ -207,7 +205,7 @@ class DatabaseTests extends TestCase
         ];
 
         $roles = $user->jobRoles;
-        $this->assertEquals($expectedRoles, $roles->toArray());
+        $this->assertArrayEqual($expectedRoles, $roles->toArray());
     }
 
     public function testBelongsToTernaryEagerLoad()
@@ -238,7 +236,7 @@ class DatabaseTests extends TestCase
         ];
 
         $users = EloquentTestUser::with('jobRoles')->get();
-        $this->assertEquals($expectedRoles, $users->toArray()[0]['job_roles']);
+        $this->assertArrayEqual($expectedRoles, $users->toArray()[0]['job_roles']);
     }
 
     /**
@@ -253,7 +251,7 @@ class DatabaseTests extends TestCase
         $this->generateJobs();
 
         $jobs = $user->jobs()->get();
-        $this->assertEquals($expectedJobs, $jobs->toArray());
+        $this->assertArrayEqual($expectedJobs, $jobs->toArray());
     }
 
     /**
@@ -269,7 +267,7 @@ class DatabaseTests extends TestCase
 
         $users = EloquentTestUser::with('jobs')->get();
 
-        $this->assertEquals($expectedJobs, $users->toArray()[0]['jobs']);
+        $this->assertArrayEqual($expectedJobs, $users->toArray()[0]['jobs']);
     }
 
     /**
@@ -284,7 +282,7 @@ class DatabaseTests extends TestCase
         $this->generateJobs();
 
         $jobs = $user->jobs()->withPivot('title')->get();
-        $this->assertEquals($expectedJobs, $jobs->toArray());
+        $this->assertArrayEqual($expectedJobs, $jobs->toArray());
     }
 
     /**
@@ -302,7 +300,7 @@ class DatabaseTests extends TestCase
             return $relation->withPivot('title');
         }])->get();
 
-        $this->assertEquals($expectedJobs, $users->toArray()[0]['jobs']);
+        $this->assertArrayEqual($expectedJobs, $users->toArray()[0]['jobs']);
     }
 
     public function jobsProvider()
