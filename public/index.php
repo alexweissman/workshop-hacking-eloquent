@@ -20,7 +20,8 @@ $runner->doRun($suite, [
 ], false);
 $result = ob_get_clean();
 
-echo "<html><head></head><body>";
+echo "<body>";
+include 'head.php';
 
 print_r($result);
 
