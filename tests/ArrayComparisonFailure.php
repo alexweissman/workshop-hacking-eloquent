@@ -12,7 +12,7 @@ use SebastianBergmann\Comparator\ComparisonFailure;
 use SebastianBergmann\Diff\Differ;
 
 /**
- * Thrown when an assertion for string equality failed.
+ * Thrown when an assertion for array equality failed.
  */
 class ArrayComparisonFailure extends ComparisonFailure
 {
@@ -27,6 +27,16 @@ class ArrayComparisonFailure extends ComparisonFailure
 
         $differ = new Differ("\n--- Expected\n+++ Actual\n");
 
+        $result = "
+        <table>
+            <tr><th>Expected</th><th>Actual</th></tr>
+            <tr><td><pre>" . print_r($this->expected, true) .
+            "</pre></td><td><pre>" .
+            print_r($this->actual, true) .
+            "</pre></td></tr></table>
+        ";
+
+        /*
         $result =
             PHP_EOL . PHP_EOL .
             'EXPECTED:' . PHP_EOL .
@@ -38,7 +48,7 @@ class ArrayComparisonFailure extends ComparisonFailure
             'DIFF:' . PHP_EOL .
             '====' .
             $differ->diff($this->expectedAsString, $this->actualAsString);
-
+        */
         return $result;
     }
 }

@@ -15,13 +15,14 @@ $suite->addTestSuite('App\Tests\DatabaseTests');
 // Shunt output of PHPUnit to a variable
 ob_start();
 $runner = new PHPUnit_TextUI_TestRunner;
-$runner->doRun($suite, [], false);
+$runner->doRun($suite, [
+    'printer' => new App\Tests\Printer
+], false);
 $result = ob_get_clean();
 
 echo "<html><head></head><body>";
-echo "<pre>";
+
 print_r($result);
-echo "</pre>";
 
 echo "<hr>";
 

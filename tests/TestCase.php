@@ -12,7 +12,6 @@ use App\Tests\Constraint\ArrayEqual;
 
 abstract class TestCase extends \PHPUnit_Framework_TestCase
 {
-
     /**
      * Asserts that two arrays are equal
      *
