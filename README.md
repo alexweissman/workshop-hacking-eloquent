@@ -7,70 +7,70 @@ In this workshop, you will learn how Laravel's Eloquent ORM is structured intern
 
 ## Background
 
-In this workshop, we will implement a **ternary relationship** - a type of relationship that, while common in business data models, is not directly supported by Laravel.  The ternary relationship implements an m:m:m relationship among three distinct entities.  Consider for example, a model where workers have various roles at various work sites - for example, perhaps the same worker is a lathe operator at worksite A, but a drill operator at site B.  To model this, we have a pivot table containing triplets of user-role-location, which we will call a **job**:
+In this workshop, we will implement a **ternary relationship** - a type of relationship that, while common in business data models, is not directly supported by Laravel.  The ternary relationship implements an m:m:m relationship among three distinct entities.  Consider for example, a model where worker ants have various jobs at various work sites - for example, perhaps the same worker is a soldier at worksite A, but a forager at site B.  To model this, we have a pivot table containing triplets of worker-job-location, which we will call an **assignment**:
 
-**users**
+**workers**
 
 | id | name   |
 |----|--------|
 | 1  | Alice  |
-| 2  | Bob    |
-
-**roles**
-
-| id | description    |
-|----|----------------|
-| 1  | manager        |
-| 2  | lathe operator |
-| 3  | drill operator |
-
-**locations**
-
-| id | name     |
-|----|----------|
-| 1  | Scranton |
-| 2  | Peoria   |
+| 2  | David  |
 
 **jobs**
 
-| user_id | role_id | location_id |
-|---------|---------|-------------|
-| 1       | 2       | 1           |
-| 1       | 2       | 2           |
-| 1       | 3       | 2           |
-| 2       | 3       | 1           |
+| id | description |
+|----|-------------|
+| 1  | forager     |
+| 2  | soldier     |
+| 3  | attendant   |
+
+**locations**
+
+| id | name          |
+|----|---------------|
+| 1  | Hatchery      |
+| 2  | Royal Chamber |
+
+**assignments**
+
+| worker_id | job_id | location_id |
+|-----------|--------|-------------|
+| 1         | 2      | 1           |
+| 1         | 2      | 2           |
+| 1         | 3      | 2           |
+| 2         | 3      | 1           |
 
 ## Goal
 
-The goal of this workshop is to implement a `BelongsToTernary` relationship, which can capture this relationship as a nested data structure.  For example we might want to retrieve a user's roles, and then for each of their roles, have a nested sub-collection of the locations where they have those roles:
+The goal of this workshop is to implement a `BelongsToTernary` relationship, which can capture this relationship as a nested data structure.  For example we might want to retrieve a worker's jobs, and then for each of their jobs, have a nested sub-collection of the locations where they have those jobs:
 
-User Alice's jobs:
+Worker Alice's assignments:
 
 ```
 [
   2 => [
-    'description' => 'lathe operator',
+    'description' => 'soldier',
     'locations' => [
       1 => [
-        'name' => 'Scranton'
+        'name' => 'Hatchery'
       ],
       2 => [
-        'name' => 'Peoria'
+        'name' => 'Royal Chamber'
       ]
     ]
   ],
   3 => [
-    'description' => 'drill operator',
+    'description' => 'attendant',
     'locations' => [
       2 => [
-        'name' => 'Peoria'
+        'name' => 'Royal Chamber'
       ]
     ]
   ]
 ]
 ```
 
-Alice is a lathe operator in both Scranton and Peoria, but a drill operator only in Peoria.
+Alice is a soldier in both the Hatchery and the Royal Chamber, but an attendant only in the Royal Chamber.
 
 This repository includes a partially-implemented version of `BelongsToTernary`, which extends Laravel's `BelongsToMany` relationship.  We also provide an extended version of the `Model` class with a `belongsToTernary` method, and a PHPUnit test suite with (mostly) failing tests.  Your task will be to complete the implementation of `BelongsToTernary` so that all of the tests pass.
 
@@ -91,7 +91,7 @@ To aid in your development process, all executed database queries will be logged
 
 ## Tasks
 
-Your first tasks are to get the top-level relationship working between `User` and `Role`.  This is essentially the `BelongsToMany` relationship, except that you must deal with any `Role` that would otherwise appear multiple times due to the fact that there could be multiple triplets with the same `user_id` and `role_id`.
+Your first tasks are to get the top-level relationship working between `Worker` and `Job`.  This is essentially the `BelongsToMany` relationship, except that you must deal with any `Job` that would otherwise appear multiple times due to the fact that there could be multiple triplets with the same `worker_id` and `job_id`.
 
 ### 1
 
@@ -99,7 +99,7 @@ Implement `BelongsToTernary::condenseModels`, which collapses these rows into a 
 
 ### 2
 
-Modify `BelongsToTernary::match`, which is responsible for matching eager-loaded models to their parents.  Again, we have provided you with the default implementation from `BelongsToMany::match`, but you must modify it to collapse rows with the same `user_id` and `role_id` (for example) into a single child model.
+Modify `BelongsToTernary::match`, which is responsible for matching eager-loaded models to their parents.  Again, we have provided you with the default implementation from `BelongsToMany::match`, but you must modify it to collapse rows with the same `worker_id` and `job_id` (for example) into a single child model.
 
 ### 3
 
@@ -107,9 +107,9 @@ By default, `BelongsToTernary::buildDictionary` returns a dictionary that maps p
 
 ```
 [
-    // User 1
+    // Worker 1
     '1' => [
-        // Role 3
+        // Job 3
         '3' => [
             Location1,
             Location2
