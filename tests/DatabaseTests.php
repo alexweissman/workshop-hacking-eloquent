@@ -282,7 +282,10 @@ class DatabaseTests extends TestCase
      */
     public function testBelongsToTernaryEagerLoadWithTertiary($expectedAssignments)
     {
-        $workers = EloquentTestWorker::with('assignments')->get();
+        $workers = EloquentTestWorker::with(['assignments' => function ($relation) {
+            return $relation
+                ->withTertiary(EloquentTestLocation::class, null, 'location_id');
+        }])->get();
 
         $this->assertArrayEqual($expectedAssignments, $workers->toArray()[0]['assignments'], $this->getTaskFailureMessage(4));
         echo $this->getTaskSuccessMessage(__FUNCTION__);
