@@ -96,36 +96,42 @@ class DatabaseTests extends TestCase
     public function setUp()
     {
         $this->createSchema();
+
+        $this->generateWorkers();
+        $this->generateLocations();
+        $this->generateJobs();
+        $this->generateAssignments();
     }
 
     protected function createSchema()
     {
-        $this->schema($this->schemaName)->create('users', function ($table) {
+        $this->schema($this->schemaName)->create('workers', function ($table) {
             $table->increments('id');
             $table->string('name')->nullable();
         });
 
-        // Users have multiple roles... (m:m)
-        $this->schema($this->schemaName)->create('role_users', function ($table) {
-            $table->integer('user_id')->unsigned();
-            $table->integer('role_id')->unsigned();
-        });
-
-        $this->schema($this->schemaName)->create('jobs', function($table) {
-            $table->integer('user_id')->unsigned();
-            $table->integer('location_id')->unsigned();
-            $table->integer('role_id')->unsigned();
-            $table->string('title');
-        });
-
-        $this->schema($this->schemaName)->create('roles', function ($table) {
+        $this->schema($this->schemaName)->create('jobs', function ($table) {
             $table->increments('id');
-            $table->string('slug');
+            $table->string('label');
         });
 
         $this->schema($this->schemaName)->create('locations', function($table) {
             $table->increments('id');
             $table->string('name');
+        });
+
+        // Workers have multiple jobs... (m:m)
+        $this->schema($this->schemaName)->create('job_workers', function ($table) {
+            $table->integer('worker_id')->unsigned();
+            $table->integer('job_id')->unsigned();
+        });
+
+        // Workers are assigned specific jobs at specific locations... (m:m:m)
+        $this->schema($this->schemaName)->create('assignments', function($table) {
+            $table->integer('worker_id')->unsigned();
+            $table->integer('location_id')->unsigned();
+            $table->integer('job_id')->unsigned();
+            $table->string('title');
         });
     }
 
@@ -136,11 +142,11 @@ class DatabaseTests extends TestCase
      */
     public function tearDown()
     {
-        $this->schema($this->schemaName)->drop('users');
-        $this->schema($this->schemaName)->drop('role_users');
-        $this->schema($this->schemaName)->drop('roles');
+        $this->schema($this->schemaName)->drop('workers');
         $this->schema($this->schemaName)->drop('jobs');
         $this->schema($this->schemaName)->drop('locations');
+        $this->schema($this->schemaName)->drop('job_workers');
+        $this->schema($this->schemaName)->drop('assignments');
 
         Relation::morphMap([], false);
     }
@@ -151,31 +157,29 @@ class DatabaseTests extends TestCase
      */
     public function testBelongsToMany()
     {
-        $this->generateRoles();
+        $worker = EloquentTestWorker::first();
 
-        $user = EloquentTestUser::create(['name' => 'David']);
-
-        $user->roles()->attach([1,2]);
+        $worker->jobs()->attach([1,2]);
 
         // Test retrieval of pivots as well
         $this->assertArrayEqual([
             [
                 'id' => 1,
-                'slug' => 'forager',
+                'label' => 'forager',
                 'pivot' => [
-                    'user_id' => 1,
-                    'role_id' => 1
+                    'worker_id' => 1,
+                    'job_id' => 1
                 ]
             ],
             [
                 'id' => 2,
-                'slug' => 'soldier',
+                'label' => 'soldier',
                 'pivot' => [
-                    'user_id' => 1,
-                    'role_id' => 2
+                    'worker_id' => 1,
+                    'job_id' => 2
                 ]
             ]
-        ], $user->roles->toArray());
+        ], $worker->jobs->toArray());
         echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
@@ -184,33 +188,29 @@ class DatabaseTests extends TestCase
      */
     public function testBelongsToTernary()
     {
-        $user = EloquentTestUser::create(['name' => 'David']);
+        $worker = EloquentTestWorker::first();
 
-        $this->generateLocations();
-        $this->generateRoles();
-        $this->generateJobs();
-
-        $expectedRoles = [
+        $expectedAssignments = [
             [
                 'id' => 2,
-                'slug' => 'soldier',
+                'label' => 'soldier',
                 'pivot' => [
-                    'user_id' => 1,
-                    'role_id' => 2
+                    'worker_id' => 1,
+                    'job_id' => 2
                 ]
             ],
             [
                 'id' => 3,
-                'slug' => 'egg-layer',
+                'label' => 'attendant',
                 'pivot' => [
-                    'user_id' => 1,
-                    'role_id' => 3
+                    'worker_id' => 1,
+                    'job_id' => 3
                 ]
             ]
         ];
 
-        $roles = $user->jobRoles;
-        $this->assertArrayEqual($expectedRoles, $roles->toArray(), $this->getTaskFailureMessage(1));
+        $assignments = $worker->assignments;
+        $this->assertArrayEqual($expectedAssignments, $assignments->toArray(), $this->getTaskFailureMessage(1));
         echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
@@ -219,116 +219,101 @@ class DatabaseTests extends TestCase
      */
     public function testBelongsToTernaryEagerLoad()
     {
-        $user = EloquentTestUser::create(['name' => 'David']);
-
-        $this->generateLocations();
-        $this->generateRoles();
-        $this->generateJobs();
-
-        $expectedRoles = [
+        $expectedAssignments = [
             [
                 'id' => 2,
-                'slug' => 'soldier',
+                'label' => 'soldier',
                 'pivot' => [
-                    'user_id' => 1,
-                    'role_id' => 2
+                    'worker_id' => 1,
+                    'job_id' => 2
                 ]
             ],
             [
                 'id' => 3,
-                'slug' => 'egg-layer',
+                'label' => 'attendant',
                 'pivot' => [
-                    'user_id' => 1,
-                    'role_id' => 3
+                    'worker_id' => 1,
+                    'job_id' => 3
                 ]
             ]
         ];
 
-        $users = EloquentTestUser::with('jobRoles')->get();
-        $this->assertArrayEqual($expectedRoles, $users->toArray()[0]['job_roles'], $this->getTaskFailureMessage(2));
+        $workers = EloquentTestWorker::with('assignments')->get();
+        $this->assertArrayEqual($expectedAssignments, $workers->toArray()[0]['assignments'], $this->getTaskFailureMessage(2));
         echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
     /**
      * Test loading of the tertiary relationship on a single model.  See task 3.
-     * @dataProvider jobsProvider
+     * @dataProvider assignmentsProvider
      */
-    public function testBelongsToTernaryWithTertiary($expectedJobs)
+    public function testBelongsToTernaryWithTertiary($expectedAssignments)
     {
-        $user = EloquentTestUser::create(['name' => 'David']);
+        $worker = EloquentTestWorker::first();
 
-        $this->generateLocations();
-        $this->generateRoles();
-        $this->generateJobs();
+        $assignments = $worker
+            ->assignments()
+            ->withTertiary(EloquentTestLocation::class, null, 'location_id')
+            ->get();
 
-        $jobs = $user->jobs()->get();
-        $this->assertArrayEqual($expectedJobs, $jobs->toArray(), $this->getTaskFailureMessage(3));
+        $this->assertArrayEqual($expectedAssignments, $assignments->toArray(), $this->getTaskFailureMessage(3));
         echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
     /**
-     * @dataProvider jobsWithTitleProvider
+     * @dataProvider assignmentsWithTitleProvider
      */
-    public function testBelongsToTernaryWithTertiaryAndPivots($expectedJobs)
+    public function testBelongsToTernaryWithTertiaryAndPivots($expectedAssignments)
     {
-        $user = EloquentTestUser::create(['name' => 'David']);
+        $worker = EloquentTestWorker::first();
 
-        $this->generateLocations();
-        $this->generateRoles();
-        $this->generateJobs();
+        $assignments = $worker
+            ->assignments()
+            ->withTertiary(EloquentTestLocation::class, null, 'location_id')
+            ->withPivot('title')
+            ->get();
 
-        $jobs = $user->jobs()->withPivot('title')->get();
-        $this->assertArrayEqual($expectedJobs, $jobs->toArray(), $this->getTaskFailureMessage(3));
+        $this->assertArrayEqual($expectedAssignments, $assignments->toArray(), $this->getTaskFailureMessage(3));
         echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
     /**
-     * @dataProvider jobsProvider
+     * @dataProvider assignmentsProvider
      */
-    public function testBelongsToTernaryEagerLoadWithTertiary($expectedJobs)
+    public function testBelongsToTernaryEagerLoadWithTertiary($expectedAssignments)
     {
-        $user = EloquentTestUser::create(['name' => 'David']);
+        $workers = EloquentTestWorker::with('assignments')->get();
 
-        $this->generateLocations();
-        $this->generateRoles();
-        $this->generateJobs();
-
-        $users = EloquentTestUser::with('jobs')->get();
-
-        $this->assertArrayEqual($expectedJobs, $users->toArray()[0]['jobs'], $this->getTaskFailureMessage(4));
+        $this->assertArrayEqual($expectedAssignments, $workers->toArray()[0]['assignments'], $this->getTaskFailureMessage(4));
         echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
     /**
-     * @dataProvider jobsWithTitleProvider
+     * @dataProvider assignmentsWithTitleProvider
      */
-    public function testBelongsToTernaryEagerLoadWithTertiaryAndPivots($expectedJobs)
+    public function testBelongsToTernaryEagerLoadWithTertiaryAndPivots($expectedAssignments)
     {
-        $user = EloquentTestUser::create(['name' => 'David']);
-
-        $this->generateLocations();
-        $this->generateRoles();
-        $this->generateJobs();
-
-        $users = EloquentTestUser::with(['jobs' => function ($relation) {
-            return $relation->withPivot('title');
+        $workers = EloquentTestWorker::with(['assignments' => function ($relation) {
+            return $relation
+                ->withTertiary(EloquentTestLocation::class, null, 'location_id')
+                ->withPivot('title');
         }])->get();
 
-        $this->assertArrayEqual($expectedJobs, $users->toArray()[0]['jobs'], $this->getTaskFailureMessage(4));
+        $this->assertArrayEqual($expectedAssignments, $workers->toArray()[0]['assignments'], $this->getTaskFailureMessage(4));
         echo $this->getTaskSuccessMessage(__FUNCTION__);
     }
 
-    public function jobsProvider()
+    public function assignmentsProvider()
     {
         return [
             [
                 [
                     [
                         'id' => 2,
-                        'slug' => 'soldier',
+                        'label' => 'soldier',
                         'pivot' => [
-                            'user_id' => 1,
-                            'role_id' => 2
+                            'worker_id' => 1,
+                            'job_id' => 2
                         ],
                         'locations' => [
                             [
@@ -336,33 +321,33 @@ class DatabaseTests extends TestCase
                                 'name' => 'Hatchery',
                                 'pivot' => [
                                     'location_id' => 1,
-                                    'role_id' => 2
+                                    'job_id' => 2
                                 ]
                             ],
                             [
                                 'id' => 2,
-                                'name' => 'Nexus',
+                                'name' => 'Brood Chamber',
                                 'pivot' => [
                                     'location_id' => 2,
-                                    'role_id' => 2
+                                    'job_id' => 2
                                 ]
                             ]
                         ]
                     ],
                     [
                         'id' => 3,
-                        'slug' => 'egg-layer',
+                        'label' => 'attendant',
                         'pivot' => [
-                            'user_id' => 1,
-                            'role_id' => 3
+                            'worker_id' => 1,
+                            'job_id' => 3
                         ],
                         'locations' => [
                             [
                                 'id' => 2,
-                                'name' => 'Nexus',
+                                'name' => 'Brood Chamber',
                                 'pivot' => [
                                     'location_id' => 2,
-                                    'role_id' => 3
+                                    'job_id' => 3
                                 ]
                             ]
                         ]
@@ -372,17 +357,17 @@ class DatabaseTests extends TestCase
         ];
     }
 
-    public function jobsWithTitleProvider()
+    public function assignmentsWithTitleProvider()
     {
         return [
             [
                 [
                     [
                         'id' => 2,
-                        'slug' => 'soldier',
+                        'label' => 'soldier',
                         'pivot' => [
-                            'user_id' => 1,
-                            'role_id' => 2
+                            'worker_id' => 1,
+                            'job_id' => 2
                         ],
                         'locations' => [
                             [
@@ -391,35 +376,35 @@ class DatabaseTests extends TestCase
                                 'pivot' => [
                                     'title' => 'Grunt',
                                     'location_id' => 1,
-                                    'role_id' => 2
+                                    'job_id' => 2
                                 ]
                             ],
                             [
                                 'id' => 2,
-                                'name' => 'Nexus',
+                                'name' => 'Brood Chamber',
                                 'pivot' => [
-                                    'title' => 'Sergeant',
+                                    'title' => 'Guard',
                                     'location_id' => 2,
-                                    'role_id' => 2
+                                    'job_id' => 2
                                 ]
                             ]
                         ]
                     ],
                     [
                         'id' => 3,
-                        'slug' => 'egg-layer',
+                        'label' => 'attendant',
                         'pivot' => [
-                            'user_id' => 1,
-                            'role_id' => 3
+                            'worker_id' => 1,
+                            'job_id' => 3
                         ],
                         'locations' => [
                             [
                                 'id' => 2,
-                                'name' => 'Nexus',
+                                'name' => 'Brood Chamber',
                                 'pivot' => [
-                                    'title' => 'Queen',
+                                    'title' => 'Feeder',
                                     'location_id' => 2,
-                                    'role_id' => 3
+                                    'job_id' => 3
                                 ]
                             ]
                         ]
@@ -454,65 +439,65 @@ class DatabaseTests extends TestCase
     }
 
     /**
-     * Generate some sample jobs.  A job is a unique triplet of role, location, and user.
+     * Generate some sample assignments.  A assignment is a unique triplet of job, location, and worker.
      */
-    protected function generateJobs()
+    protected function generateAssignments()
     {
         /**
          * Sample data
 
-        | user_id | role_id | location_id |
-        |---------|---------|-------------|
-        | 1       | 2       | 1           |
-        | 1       | 2       | 2           |
-        | 1       | 3       | 2           |
-        | 2       | 3       | 1           |
+        | worker_id | job_id | location_id |
+        |-----------|--------|-------------|
+        | 1         | 2      | 1           |
+        | 1         | 2      | 2           |
+        | 1         | 3      | 2           |
+        | 2         | 3      | 2           |
         */
 
         return [
-            EloquentTestJob::create([
-                'role_id' => 2,
+            EloquentTestAssignment::create([
+                'job_id' => 2,
                 'location_id' => 1,
-                'user_id' => 1,
+                'worker_id' => 1,
                 'title' => 'Grunt'
             ]),
-            EloquentTestJob::create([
-                'role_id' => 2,
+            EloquentTestAssignment::create([
+                'job_id' => 2,
                 'location_id' => 2,
-                'user_id' => 1,
-                'title' => 'Sergeant'
+                'worker_id' => 1,
+                'title' => 'Guard'
             ]),
-            EloquentTestJob::create([
-                'role_id' => 3,
+            EloquentTestAssignment::create([
+                'job_id' => 3,
                 'location_id' => 2,
-                'user_id' => 1,
-                'title' => 'Queen'
+                'worker_id' => 1,
+                'title' => 'Feeder'
             ]),
-            EloquentTestJob::create([
-                'role_id' => 3,
-                'location_id' => 1,
-                'user_id' => 2,
-                'title' => 'Demi-queen'
+            EloquentTestAssignment::create([
+                'job_id' => 3,
+                'location_id' => 2,
+                'worker_id' => 2,
+                'title' => 'Midwife'
             ])
         ];
     }
 
-    protected function generateRoles()
+    protected function generateJobs()
     {
         return [
-            EloquentTestRole::create([
+            EloquentTestJob::create([
                 'id' => 1,
-                'slug' => 'forager'
+                'label' => 'forager'
             ]),
 
-            EloquentTestRole::create([
+            EloquentTestJob::create([
                 'id' => 2,
-                'slug' => 'soldier'
+                'label' => 'soldier'
             ]),
 
-            EloquentTestRole::create([
+            EloquentTestJob::create([
                 'id' => 3,
-                'slug' => 'egg-layer'
+                'label' => 'attendant'
             ])
         ];
     }
@@ -527,7 +512,22 @@ class DatabaseTests extends TestCase
 
             EloquentTestLocation::create([
                 'id' => 2,
-                'name' => 'Nexus'
+                'name' => 'Brood Chamber'
+            ])
+        ];
+    }
+
+    protected function generateWorkers()
+    {
+        return [
+            EloquentTestWorker::create([
+                'id' => 1,
+                'name' => 'Alice'
+            ]),
+
+            EloquentTestWorker::create([
+                'id' => 2,
+                'name' => 'David'
             ])
         ];
     }
@@ -553,69 +553,54 @@ class EloquentTestModel extends Model
     public $timestamps = false;
 }
 
-class EloquentTestUser extends EloquentTestModel
+class EloquentTestWorker extends EloquentTestModel
 {
-    protected $table = 'users';
+    protected $table = 'workers';
     protected $guarded = [];
 
     /**
-     * Get all of the user's unique roles based on their jobs.
+     * Get all of the worker's unique jobs based on their assignments.
      */
-    public function jobRoles()
+    public function assignments()
     {
         $relation = $this->belongsToTernary(
-            EloquentTestRole::class,
-            'jobs',
-            'user_id',
-            'role_id'
+            EloquentTestJob::class,
+            'assignments',
+            'worker_id',
+            'job_id'
         );
 
         return $relation;
     }
 
     /**
-     * Get all of the user's unique roles based on their jobs, with locations nested as a tertiary relationship.
-     */
-    public function jobs()
-    {
-        $relation = $this->belongsToTernary(
-            EloquentTestRole::class,
-            'jobs',
-            'user_id',
-            'role_id'
-        )->withTertiary(EloquentTestLocation::class, null, 'location_id');
-
-        return $relation;
-    }
-
-    /**
-     * Get all roles to which this user belongs.
+     * Get all jobs to which this worker is assigned.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
-    public function roles()
+    public function jobs()
     {
-        return $this->belongsToMany(EloquentTestRole::class, 'role_users', 'user_id', 'role_id');
+        return $this->belongsToMany(EloquentTestJob::class, 'job_workers', 'worker_id', 'job_id');
+    }
+}
+
+class EloquentTestAssignment extends EloquentTestModel
+{
+    protected $table = 'assignments';
+    protected $guarded = [];
+
+    /**
+     * Get the job for this assignment.
+     */
+    public function job()
+    {
+        return $this->belongsTo(EloquentTestAssignment::class, 'job_id');
     }
 }
 
 class EloquentTestJob extends EloquentTestModel
 {
     protected $table = 'jobs';
-    protected $guarded = [];
-
-    /**
-     * Get the role for this job.
-     */
-    public function role()
-    {
-        return $this->belongsTo(EloquentTestRole::class, 'role_id');
-    }
-}
-
-class EloquentTestRole extends EloquentTestModel
-{
-    protected $table = 'roles';
     protected $guarded = [];
 }
 
